@@ -20,14 +20,14 @@
       :content (name-values
                  {:system.users username
                   :system.port 6667
-                  :system.md5 0}
+                  :system.md5 1}
                  :separator "="))
     
     (directory "/var/lib/sbnc/users/")
     (remote-file
       (format "/var/lib/sbnc/users/%s.conf" username) ; exploit here
       :content (name-values
-                 {:user.password password
+                 {:user.password (md5 password)
                   :user.admin 1
                   :user.nick username
                   :user.server "localhost"
@@ -38,7 +38,8 @@
   (package "ngircd"))
 
 (defplan start-sbnc []
-  (remote-file "/etc/default/sbnc" :content "AUTOSTART_SBNC=1"))
+  (remote-file "/etc/default/sbnc" :content "AUTOSTART_SBNC=1")
+  (comment initd start))
 
 (defplan sbnc []
   (package "sbnc")
