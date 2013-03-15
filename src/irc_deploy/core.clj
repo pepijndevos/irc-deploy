@@ -19,7 +19,7 @@
       "/etc/sbnc/sbnc.conf"
       :content (name-values
                  {:system.users username
-                  :system.port 6667
+                  :system.port 6697
                   :system.md5 1}
                  :separator "="))
     
