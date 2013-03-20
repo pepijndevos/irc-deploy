@@ -4,7 +4,7 @@
         [pallet.api :only [group-spec, node-spec]]
         [pallet.crate :only [defplan get-settings assoc-settings]]
         [pallet.crate.automated-admin-user :only [automated-admin-user]]
-        [pallet.actions :only [package package-manager service with-service-restart remote-file directory]]
+        [pallet.actions :only [package package-manager service with-service-restart service-script exec-script* user group remote-file directory]]
         [pallet.config-file.format :only [name-values sectioned-properties]]))
 
 (def vmfest (instantiate-provider "vmfest"))
@@ -42,47 +42,44 @@
   (with-service-restart "ngircd"
     (ngircd-conf)))
 
-(defplan sbnc-conf []
-  (let [{:keys [username password]} (get-settings :irc-admin)]
-    (remote-file
-      "/etc/sbnc/sbnc.conf"
-      :user "sbnc"
-      :group "sbnc"
-      :content (name-values
-                 {:system.users username
-                  :system.port 6697
-                  :system.md5 1}
-                 :separator "="))
-    
-    (directory "/var/lib/sbnc/users/")
-    (remote-file
-      (format "/var/lib/sbnc/users/%s.conf" username) ; exploit here
-      :user "sbnc"
-      :group "sbnc"
-      :content (name-values
-                 {:user.password (md5 password)
-                  :user.admin 1
-                  :user.nick username
-                  :user.server "localhost"
-                  :user.port 6667}
-                 :separator "="))))
+(defplan start-znc []
+  (service-script "znc"
+                  :service-impl :upstart
+                  :local-file "resources/znc.upstart")
+  (service "znc"
+           :action :start
+           :service-impl :upstart))
 
-(defplan start-sbnc []
-  (remote-file "/etc/default/sbnc" :content "AUTOSTART_SBNC=1")
-  (service "sbnc" :action :start))
+(defplan znc-conf []
+  (group "znc" :action :create)
+  (user "znc"
+        :action :create
+        :create-home true
+        :home "/var/lib/znc"
+        :system true
+        :group "znc")
+  (directory "/var/lib/znc/configs/"
+             :user "znc"
+             :group "znc")
+  (remote-file "/var/lib/znc/configs/znc.conf"
+               :user "znc"
+               :group "znc"
+               :local-file "resources/znc.conf")
+  (exec-script* "znc --makepem --datadir=/var/lib/znc/"))
+              
 
-(defplan sbnc []
-  (package "sbnc")
-  (sbnc-conf)
-  (start-sbnc))
+(defplan znc []
+  (package "znc")
+  (znc-conf)
+  (start-znc))
 
 (defplan configure-irc []
   (package-manager :update)
+  (package-manager :upgrade)
   (ngircd)
-  (sbnc))
+  (znc))
 
 (defplan settings []
-  (assoc-settings :irc-admin  {:username "admin", :password "admin"})
   (assoc-settings :irc-server {:host "irc.example.com", :motd "Welcome!"}))
 
 (def ubuntu-group 
