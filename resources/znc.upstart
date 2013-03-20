@@ -1,0 +1,10 @@
+description "IRC bouncer"
+
+start on runlevel [2345]
+stop on runlevel [!2345]
+
+setuid znc
+setgid znc
+
+respawn
+exec znc --foreground --datadir=/var/lib/znc
