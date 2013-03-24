@@ -4,20 +4,49 @@
         [pallet.api :only [group-spec, node-spec]]
         [pallet.crate :only [defplan get-settings assoc-settings]]
         [pallet.crate.automated-admin-user :only [automated-admin-user]]
-        [pallet.actions :only [package package-manager service with-service-restart service-script exec-script* user group remote-file directory]]
+        [pallet.actions :only [package package-manager package-source service with-service-restart service-script exec-script* exec-script user group remote-file directory]]
         [pallet.config-file.format :only [name-values sectioned-properties]]))
 
 (def vmfest (instantiate-provider "vmfest"))
 ;(add-image vmfest "https://s3.amazonaws.com/vmfest-images/ubuntu-12.04.vdi.gz")
 
-(defn md5 [s]
-  (org.apache.commons.codec.digest.DigestUtils/md5Hex s))
+(defmulti install (fn [mngr pkg] mngr))
+
+(defmethod install :npm [_ pkg]
+  (exec-script ("npm" "install" "-g" ~pkg)))
+
+(defplan nodejs []
+  (package-source "nodejs" :aptitude {:url "ppa:chris-lea/node.js"})
+  (package "nodejs"))
+
+(defplan subway-conf []
+  (group "subway" :action :create)
+  (user "subway"
+        :action :create
+        :system true
+        :group "subway"))
+
+(defplan start-subway []
+  (service-script "subway"
+                  :service-impl :upstart
+                  :local-file "resources/subway.upstart")
+  (service "subway"
+           :action :start
+           :service-impl :upstart))
+
+(defplan subway []
+  (package "mongodb")
+  (package "git")
+  (nodejs)
+  (install :npm "git://github.com/thedjpetersen/subway.git")
+  (subway-conf)
+  (start-subway))
 
 (defplan ngircd-conf []
   (let [{:keys [host motd]} (get-settings :irc-server)]
     (remote-file
       "/etc/ngircd/ngircd.conf"
-      :user "irc"
+      :owner "irc"
       :group "irc"
       :content (sectioned-properties
                  {:global  {:Listen "127.0.0.1"
@@ -59,10 +88,10 @@
         :system true
         :group "znc")
   (directory "/var/lib/znc/configs/"
-             :user "znc"
+             :owner "znc"
              :group "znc")
   (remote-file "/var/lib/znc/configs/znc.conf"
-               :user "znc"
+               :owner "znc"
                :group "znc"
                :local-file "resources/znc.conf")
   (exec-script* "znc --makepem --datadir=/var/lib/znc/"))
@@ -77,7 +106,8 @@
   (package-manager :update)
   (package-manager :upgrade)
   (ngircd)
-  (znc))
+  (znc)
+  (subway))
 
 (defplan settings []
   (assoc-settings :irc-server {:host "irc.example.com", :motd "Welcome!"}))
@@ -87,8 +117,7 @@
     "ubuntu-vms" 
     :count 1
     :node-spec (node-spec
-                 :image {:os-family :ubuntu
-                         :os-64-bit? true}
+                 :image {:image-id :ubuntu-12.04}
     :phases {:bootstrap automated-admin-user
              :configure configure-irc
              :settings settings})))
