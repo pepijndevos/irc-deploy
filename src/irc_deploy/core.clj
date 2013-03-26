@@ -19,28 +19,27 @@
   (package-source "nodejs" :aptitude {:url "ppa:chris-lea/node.js"})
   (package "nodejs"))
 
-(defplan subway-conf []
-  (group "subway" :action :create)
-  (user "subway"
+(defplan kiwi-conf []
+  (group "kiwi" :action :create)
+  (user "kiwi"
         :action :create
         :system true
-        :group "subway"))
+        :group "kiwi"))
 
-(defplan start-subway []
-  (service-script "subway"
+(defplan start-kiwi []
+  (service-script "kiwiirc"
                   :service-impl :upstart
-                  :local-file "resources/subway.upstart")
-  (service "subway"
+                  :local-file "resources/kiwi.upstart")
+  (service "kiwiirc"
            :action :start
            :service-impl :upstart))
 
-(defplan subway []
-  (package "mongodb")
+(defplan kiwi []
   (package "git")
   (nodejs)
-  (install :npm "git://github.com/thedjpetersen/subway.git")
-  (subway-conf)
-  (start-subway))
+  (install :npm "git://github.com/prawnsalad/KiwiIRC.git")
+  (kiwi-conf)
+  (start-kiwi))
 
 (defplan ngircd-conf []
   (let [{:keys [host motd]} (get-settings :irc-server)]
@@ -53,7 +52,7 @@
                             :Name host
                             :MotdPhrase motd
                             ;Keep this setting in sync with PIDFILE in /etc/init.d/ngircd
-                            :PidFile "/var/run/ngircd/ngircd.pid"
+                            :PidFile "/var/run/ircd/ngircd.pid"
                             ;Keep this setting in sync with DAEMONUSER in /etc/init.d/ngircd
                             :ServerGID "irc"
                             ;Keep this setting in sync with DAEMONUSER in /etc/init.d/ngircd
@@ -67,9 +66,13 @@
                   :Limits  {:MaxConnectionsIP 0}}))))
 
 (defplan ngircd []
+  (package-source "ngircd" :aptitude {:url "http://debian.barton.de/debian"
+                                      :release "lenny"
+                                      :key-url "http://debian.barton.de/debian/archive-key.gpg"})
   (package "ngircd")
-  (with-service-restart "ngircd"
-    (ngircd-conf)))
+  (ngircd-conf)
+  (service "ngircd" :action :restart))
+  ;(exec-script* "kill -s SIGHUP $(cat /var/run/ngircd/ngircd.pid)"))
 
 (defplan start-znc []
   (service-script "znc"
@@ -103,14 +106,14 @@
   (start-znc))
 
 (defplan configure-irc []
-  (package-manager :update)
-  (package-manager :upgrade)
+  ;(package-manager :update)
+  ;(package-manager :upgrade)
   (ngircd)
   (znc)
-  (subway))
+  (kiwi))
 
 (defplan settings []
-  (assoc-settings :irc-server {:host "irc.example.com", :motd "Welcome!"}))
+  (assoc-settings :irc-server {:host "irc.example.net", :motd "Welcome!"}))
 
 (def ubuntu-group 
   (group-spec
