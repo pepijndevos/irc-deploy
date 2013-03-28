@@ -4,16 +4,12 @@
         [pallet.api :only [group-spec, node-spec]]
         [pallet.crate :only [defplan get-settings assoc-settings]]
         [pallet.crate.automated-admin-user :only [automated-admin-user]]
-        [pallet.actions :only [package package-manager package-source service with-service-restart service-script exec-script* exec-script user group remote-file directory]]
+        [pallet.actions :only [package package-manager package-source service with-service-restart service-script exec-script* exec-script user group remote-file directory remote-directory]]
+        [pallet.stevedore :only [chain-commands]]
         [pallet.config-file.format :only [name-values sectioned-properties]]))
 
 (def vmfest (instantiate-provider "vmfest"))
 ;(add-image vmfest "https://s3.amazonaws.com/vmfest-images/ubuntu-12.04.vdi.gz")
-
-(defmulti install (fn [mngr pkg] mngr))
-
-(defmethod install :npm [_ pkg]
-  (exec-script ("npm" "install" "-g" ~pkg)))
 
 (defplan nodejs []
   (package-source "nodejs" :aptitude {:url "ppa:chris-lea/node.js"})
@@ -23,6 +19,8 @@
   (group "kiwi" :action :create)
   (user "kiwi"
         :action :create
+        :home "/var/lib/kiwi"
+        :create-home true
         :system true
         :group "kiwi"))
 
@@ -35,11 +33,18 @@
            :service-impl :upstart))
 
 (defplan kiwi []
-  (package "git")
   (nodejs)
-  (install :npm "git://github.com/prawnsalad/KiwiIRC.git")
   (kiwi-conf)
-  (start-kiwi))
+  (remote-directory
+    "/var/lib/kiwi"
+    :url "https://github.com/prawnsalad/KiwiIRC/archive/master.tar.gz"
+    :owner "kiwi"
+    :group "kiwi")
+  (exec-script ("cd" "/var/lib/kiwi/")
+               ("cp" "config.example.js" "config.js")
+               ("npm" "install"))
+)
+  ;(start-kiwi))
 
 (defplan ngircd-conf []
   (let [{:keys [host motd]} (get-settings :irc-server)]
@@ -72,7 +77,6 @@
   (package "ngircd")
   (ngircd-conf)
   (service "ngircd" :action :restart))
-  ;(exec-script* "kill -s SIGHUP $(cat /var/run/ngircd/ngircd.pid)"))
 
 (defplan start-znc []
   (service-script "znc"
@@ -80,6 +84,7 @@
                   :local-file "resources/znc.upstart")
   (service "znc"
            :action :start
+           :if-stopped true
            :service-impl :upstart))
 
 (defplan znc-conf []
@@ -97,7 +102,7 @@
                :owner "znc"
                :group "znc"
                :local-file "resources/znc.conf")
-  (exec-script* "znc --makepem --datadir=/var/lib/znc/"))
+  (exec-script ("znc" "--makepem" "--datadir" "/var/lib/znc/")))
               
 
 (defplan znc []
@@ -106,8 +111,8 @@
   (start-znc))
 
 (defplan configure-irc []
-  ;(package-manager :update)
-  ;(package-manager :upgrade)
+  (package-manager :update)
+  (package-manager :upgrade)
   (ngircd)
   (znc)
   (kiwi))
