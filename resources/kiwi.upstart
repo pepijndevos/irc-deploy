@@ -7,4 +7,4 @@ setuid kiwi
 setgid kiwi
 
 respawn
-exec kiwiirc
+exec /var/lib/kiwi/kiwi -f

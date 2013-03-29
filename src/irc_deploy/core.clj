@@ -22,7 +22,15 @@
         :home "/var/lib/kiwi"
         :create-home true
         :system true
-        :group "kiwi"))
+        :group "kiwi")
+  (remote-file "/var/lib/kiwi/client/assets/upload.html"
+               :owner "kiwi"
+               :group "kiwi"
+               :url "https://gist.github.com/pepijndevos/5272061/raw/upload.html")
+  (remote-file "/var/lib/kiwi/config.js"
+               :owner "kiwi"
+               :group "kiwi"
+               :local-file "resources/kiwi.js"))
 
 (defplan start-kiwi []
   (service-script "kiwiirc"
@@ -34,17 +42,15 @@
 
 (defplan kiwi []
   (nodejs)
-  (kiwi-conf)
   (remote-directory
     "/var/lib/kiwi"
     :url "https://github.com/prawnsalad/KiwiIRC/archive/master.tar.gz"
     :owner "kiwi"
     :group "kiwi")
+  (kiwi-conf)
   (exec-script ("cd" "/var/lib/kiwi/")
-               ("cp" "config.example.js" "config.js")
                ("npm" "install"))
-)
-  ;(start-kiwi))
+  (start-kiwi))
 
 (defplan ngircd-conf []
   (let [{:keys [host motd]} (get-settings :irc-server)]
