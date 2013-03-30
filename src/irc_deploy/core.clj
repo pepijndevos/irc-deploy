@@ -37,14 +37,16 @@
                   :service-impl :upstart
                   :local-file "resources/kiwi.upstart")
   (service "kiwiirc"
-           :action :start
+           :action :restart
+           ;:if-stopped true
            :service-impl :upstart))
 
 (defplan kiwi []
   (nodejs)
   (remote-directory
     "/var/lib/kiwi"
-    :url "https://github.com/prawnsalad/KiwiIRC/archive/master.tar.gz"
+    ;:url "https://github.com/prawnsalad/KiwiIRC/archive/master.tar.gz"
+    :url "https://github.com/prawnsalad/KiwiIRC/archive/development.tar.gz"
     :owner "kiwi"
     :group "kiwi")
   (kiwi-conf)
@@ -89,8 +91,8 @@
                   :service-impl :upstart
                   :local-file "resources/znc.upstart")
   (service "znc"
-           :action :start
-           :if-stopped true
+           :action :restart
+           ;:if-stopped true
            :service-impl :upstart))
 
 (defplan znc-conf []
