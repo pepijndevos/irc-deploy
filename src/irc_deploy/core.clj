@@ -1,15 +1,10 @@
 (ns irc-deploy.core
-  (:use [pallet.compute.vmfest :only [add-image]]
-        [pallet.compute :only [instantiate-provider]]
-        [pallet.api :only [group-spec, node-spec]]
+  (:use [pallet.api :only [group-spec, node-spec]]
         [pallet.crate :only [defplan get-settings assoc-settings]]
         [pallet.crate.automated-admin-user :only [automated-admin-user]]
         [pallet.actions :only [package package-manager package-source service with-service-restart service-script exec-script* exec-script user group remote-file directory remote-directory]]
         [pallet.stevedore :only [chain-commands]]
         [pallet.config-file.format :only [name-values sectioned-properties]]))
-
-(def vmfest (instantiate-provider "vmfest"))
-;(add-image vmfest "https://s3.amazonaws.com/vmfest-images/ubuntu-12.04.vdi.gz")
 
 (defplan nodejs []
   (package-source "nodejs" :aptitude {:url "ppa:chris-lea/node.js"})
