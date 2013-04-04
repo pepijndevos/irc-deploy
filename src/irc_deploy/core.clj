@@ -17,15 +17,7 @@
         :home "/var/lib/kiwi"
         :create-home true
         :system true
-        :group "kiwi")
-  (remote-file "/var/lib/kiwi/client/assets/upload.html"
-               :owner "kiwi"
-               :group "kiwi"
-               :url "https://gist.github.com/pepijndevos/5272061/raw/upload.html")
-  (remote-file "/var/lib/kiwi/config.js"
-               :owner "kiwi"
-               :group "kiwi"
-               :local-file "resources/kiwi.js"))
+        :group "kiwi"))
 
 (defplan start-kiwi []
   (service-script "kiwiirc"
@@ -40,8 +32,7 @@
   (nodejs)
   (remote-directory
     "/var/lib/kiwi"
-    ;:url "https://github.com/prawnsalad/KiwiIRC/archive/master.tar.gz"
-    :url "https://github.com/prawnsalad/KiwiIRC/archive/development.tar.gz"
+    :url "https://github.com/pepijndevos/KiwiIRC/archive/development.tar.gz"
     :owner "kiwi"
     :group "kiwi")
   (kiwi-conf)
@@ -87,7 +78,6 @@
                   :local-file "resources/znc.upstart")
   (service "znc"
            :action :restart
-           ;:if-stopped true
            :service-impl :upstart))
 
 (defplan znc-conf []

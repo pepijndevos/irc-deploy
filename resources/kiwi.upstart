@@ -3,9 +3,6 @@ description "IRC web interface"
 start on runlevel [2345]
 stop on runlevel [!2345]
 
-setuid kiwi
-setgid kiwi
-
 respawn
 exec /var/lib/kiwi/kiwi -f
 
