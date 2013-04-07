@@ -1,5 +1,5 @@
 (ns irc-deploy.core
-  (:use [pallet.api :only [group-spec server-spec node-spec]]
+  (:use [pallet.api :only [group-spec node-spec]]
         [pallet.crate :only [defplan target-name]]
         [pallet.crate.automated-admin-user :only [automated-admin-user]]
         [pallet.actions :only [package package-manager package-source service with-service-restart service-script exec-script* exec-script user group remote-file directory remote-directory]]
@@ -47,7 +47,7 @@
     :group "irc"
     :content (sectioned-properties
                {:global  {:Listen "127.0.0.1"
-                          :Name target-name
+                          :Name (target-name)
                           ;Keep this setting in sync with PIDFILE in /etc/init.d/ngircd
                           :PidFile "/var/run/ircd/ngircd.pid"
                           ;Keep this setting in sync with DAEMONUSER in /etc/init.d/ngircd
@@ -57,7 +57,7 @@
                           ;Not required by server but by RFC!
                           :AdminInfo1 "A private server"
                           :AdminInfo2 "The Internet"
-                          :AdminEMail (str "admin@" host)}
+                          :AdminEMail "support@teamrelaychat.nl"}
                 :Options {:PAM "no"
                           :SyslogFacility "local1"}
                 :Limits  {:MaxConnectionsIP 0}})))
@@ -110,13 +110,10 @@
 
 (def irc-server 
   (group-spec
-    "irc-server" 
+    "server.irc" 
+    :count 1
     :node-spec (node-spec
-                 :image {:image-id :ubuntu-12.04}
+                 ;:packager :apt
+                 :image {:image-id :ubuntu-12.04})
     :phases {:bootstrap automated-admin-user
-             :configure configure-irc})))
-
-(def web-server
-  (group-spec
-    "web-server"
-    :extends [nginx ngircd znc kiwi]))
+             :configure configure-irc}))
