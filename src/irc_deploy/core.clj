@@ -2,9 +2,10 @@
   (:use [pallet.api :only [group-spec node-spec]]
         [pallet.crate :only [defplan target-name]]
         [pallet.crate.automated-admin-user :only [automated-admin-user]]
-        [pallet.actions :only [package package-manager package-source service with-service-restart service-script exec-script* exec-script user group remote-file directory remote-directory]]
+        [pallet.actions :only [package package-manager package-source service with-service-restart service-script exec-script* exec-script user group remote-file file directory remote-directory]]
         [pallet.stevedore :only [chain-commands]]
-        [pallet.config-file.format :only [name-values sectioned-properties]]))
+        [pallet.config-file.format :only [name-values sectioned-properties]]
+        [pallet.script.lib :only [heredoc]]))
 
 (defplan nodejs []
   (package-source "nodejs" :aptitude {:url "ppa:chris-lea/node.js"})
@@ -89,10 +90,12 @@
   (directory "/var/lib/znc/configs/"
              :owner "znc"
              :group "znc")
-  (remote-file "/var/lib/znc/configs/znc.conf"
-               :owner "znc"
-               :group "znc"
-               :local-file "resources/znc.conf")
+  (exec-script
+    (when-not (file-exists? "/var/lib/znc/configs/znc.conf")
+      (heredoc "/var/lib/znc/configs/znc.conf"
+               ~(slurp "resources/znc.conf")
+               {:literal true})))
+  (file "/var/lib/znc/configs/znc.conf" :owner "znc" :group "znc")
   (exec-script ("znc" "--makepem" "--datadir" "/var/lib/znc/")))
               
 
@@ -101,17 +104,61 @@
   (znc-conf)
   (start-znc))
 
+(defplan install-hubot []
+  (group "hubot" :action :create)
+  (user "hubot"
+        :action :create
+        :create-home true
+        :home "/var/lib/hubot"
+        :system true
+        :group "hubot")
+  (exec-script (if-not (directory? "/var/lib/hubot")
+                 (do
+                   ("npm" "install" "-g" "coffee-script")
+                   ("npm" "install" "-g" "hubot")
+                   ("hubot" "-c" "/var/lib/hubot")
+                   ("cd" "/var/lib/hubot")
+                   ("chmod" "+x" "/var/lib/hubot/bin/hubot")
+                   ("npm" "install" "hubot-irc" "--save")
+                   ("npm" "install"))
+                 (do
+                   ("cd" "/var/lib/hubot")
+                   ("npm" "update")))))
+
+
+(defplan hubot-conf []
+  (remote-file "/var/lib/hubot/hubot-scripts.json"
+               :owner "hubot"
+               :group "hubot"
+               :overwrite-changes true
+               :local-file "resources/hubot-scripts.json"))
+
+(defplan start-hubot []
+  (service-script "hubot"
+                  :service-impl :upstart
+                  :local-file "resources/hubot.upstart")
+  (service "hubot"
+           :action :restart
+           :service-impl :upstart))
+
+(defplan hubot []
+  (install-hubot)
+  (hubot-conf)
+  (start-hubot))
+
 (defplan configure-irc []
   (package-manager :update)
   (package-manager :upgrade)
   (ngircd)
   (znc)
-  (kiwi))
+  (kiwi)
+  (hubot))
 
 (def irc-server 
   (group-spec
     "server.irc" 
     :count 1
+    ;:count 2
     :node-spec (node-spec
                  ;:packager :apt
                  :image {:image-id :ubuntu-12.04})
