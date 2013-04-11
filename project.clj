@@ -9,4 +9,6 @@
                  [org.clojars.tbatchelli/vboxjxpcom "4.2.4"]
                  [commons-codec "1.7"]]
   :plugins [[com.palletops/pallet-lein "0.6.0-beta.9"]]
+  :aliases {"prod" ["pallet" "up" "--service" "VPS" "--roles" "prod"]
+            "dev" ["pallet" "up" "--roles" "dev"]}
   :repositories {"sonatype" "http://oss.sonatype.org/content/repositories/releases"})

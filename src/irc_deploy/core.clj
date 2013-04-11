@@ -157,10 +157,17 @@
 (def irc-server 
   (group-spec
     "server.irc" 
-    :count 1
-    ;:count 2
+    :count 2
+    :roles #{:prod}
     :node-spec (node-spec
                  ;:packager :apt
                  :image {:image-id :ubuntu-12.04})
     :phases {:bootstrap automated-admin-user
              :configure configure-irc}))
+
+(def dev-server
+  (group-spec
+    "dev-server"
+    :extends irc-server
+    :count 1
+    :roles #{:dev}))
