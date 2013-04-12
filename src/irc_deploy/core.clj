@@ -2,7 +2,7 @@
   (:use [pallet.api :only [group-spec node-spec]]
         [pallet.crate :only [defplan target-name]]
         [pallet.crate.automated-admin-user :only [automated-admin-user]]
-        [pallet.actions :only [package package-manager package-source service with-service-restart service-script exec-script* exec-script user group remote-file file directory remote-directory]]
+        [pallet.actions :only [package package-manager package-source service with-service-restart service-script exec-script user group remote-file file directory remote-directory]]
         [pallet.stevedore :only [chain-commands]]
         [pallet.config-file.format :only [name-values sectioned-properties]]
         [pallet.script.lib :only [heredoc]]))
@@ -10,6 +10,17 @@
 (defplan nodejs []
   (package-source "nodejs" :aptitude {:url "ppa:chris-lea/node.js"})
   (package "nodejs"))
+
+(defplan install-kiwi []
+  (nodejs)
+  (remote-directory
+    "/var/lib/kiwi"
+    :url "https://github.com/pepijndevos/KiwiIRC/archive/development.tar.gz"
+    :owner "kiwi"
+    :group "kiwi")
+  (exec-script "openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj \"/C=NL/ST=Gelderland/L=Loenen/O=Wishful Coding/CN=*.teamrelaychat.nl\" -keyout /var/lib/kiwi/server/node.key  -out /var/lib/kiwi/server/node.cert"
+               "cd /var/lib/kiwi/"
+               "npm install"))
 
 (defplan kiwi-conf []
   (group "kiwi" :action :create)
@@ -30,15 +41,8 @@
            :service-impl :upstart))
 
 (defplan kiwi []
-  (nodejs)
-  (remote-directory
-    "/var/lib/kiwi"
-    :url "https://github.com/pepijndevos/KiwiIRC/archive/development.tar.gz"
-    :owner "kiwi"
-    :group "kiwi")
   (kiwi-conf)
-  (exec-script ("cd" "/var/lib/kiwi/")
-               ("npm" "install"))
+  (install-kiwi)
   (start-kiwi))
 
 (defplan ngircd-conf []
@@ -96,7 +100,7 @@
                ~(slurp "resources/znc.conf")
                {:literal true})))
   (file "/var/lib/znc/configs/znc.conf" :owner "znc" :group "znc")
-  (exec-script ("znc" "--makepem" "--datadir" "/var/lib/znc/")))
+  (exec-script "znc --makepem --datadir /var/lib/znc/"))
               
 
 (defplan znc []
@@ -114,16 +118,16 @@
         :group "hubot")
   (exec-script (if-not (directory? "/var/lib/hubot")
                  (do
-                   ("npm" "install" "-g" "coffee-script")
-                   ("npm" "install" "-g" "hubot")
-                   ("hubot" "-c" "/var/lib/hubot")
-                   ("cd" "/var/lib/hubot")
-                   ("chmod" "+x" "/var/lib/hubot/bin/hubot")
-                   ("npm" "install" "hubot-irc" "--save")
-                   ("npm" "install"))
+                   "npm install -g coffee-script"
+                   "npm install -g hubot"
+                   "hubot -c /var/lib/hubot"
+                   "cd /var/lib/hubot"
+                   "chmod +x /var/lib/hubot/bin/hubot"
+                   "npm install hubot-irc --save"
+                   "npm install")
                  (do
-                   ("cd" "/var/lib/hubot")
-                   ("npm" "update")))))
+                   "cd /var/lib/hubot"
+                   "npm update"))))
 
 
 (defplan hubot-conf []
@@ -157,8 +161,6 @@
 (def irc-server 
   (group-spec
     "server.irc" 
-    :count 2
-    :roles #{:prod}
     :node-spec (node-spec
                  ;:packager :apt
                  :image {:image-id :ubuntu-12.04})
@@ -167,7 +169,14 @@
 
 (def dev-server
   (group-spec
-    "dev-server"
+    "server.dev"
     :extends irc-server
     :count 1
     :roles #{:dev}))
+
+(def prod-server
+  (group-spec
+    "server.prod"
+    :extends irc-server
+    :count 2
+    :roles #{:prod}))

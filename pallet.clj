@@ -1,5 +1,5 @@
 (require
- '[irc-deploy.core :refer [irc-server dev-server]])
+ '[irc-deploy.core :refer [prod-server dev-server]])
 
 (defproject irc-deploy
-  :groups [irc-server dev-server])
+  :groups [prod-server dev-server])
