@@ -4,11 +4,12 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.5.0"]
-                 [com.palletops/pallet "0.8.0-beta.7"]
+                 [com.palletops/pallet "0.8.0-beta.8"]
                  [org.cloudhoist/pallet-vmfest "0.3.0-alpha.3"]
                  [org.clojars.tbatchelli/vboxjxpcom "4.2.4"]
-                 [commons-codec "1.7"]]
+                 [ch.qos.logback/logback-classic "1.0.9"]]
   :plugins [[com.palletops/pallet-lein "0.6.0-beta.9"]]
   :aliases {"prod" ["pallet" "up" "--service" "VPS" "--roles" "prod"]
-            "dev" ["pallet" "up" "--roles" "dev"]}
-  :repositories {"sonatype" "http://oss.sonatype.org/content/repositories/releases"})
+            "dev" ["pallet" "up" "--service" "vbox" "--roles" "dev"]}
+  :repositories {"sonatype" "http://oss.sonatype.org/content/repositories/releases"}
+  :profiles {:leiningen/reply {:dependencies [[org.slf4j/jcl-over-slf4j "1.7.2"]] :exclusions [commons-logging]}})

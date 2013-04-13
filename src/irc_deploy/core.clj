@@ -18,8 +18,7 @@
     :url "https://github.com/pepijndevos/KiwiIRC/archive/development.tar.gz"
     :owner "kiwi"
     :group "kiwi")
-  (exec-script "openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj \"/C=NL/ST=Gelderland/L=Loenen/O=Wishful Coding/CN=*.teamrelaychat.nl\" -keyout /var/lib/kiwi/server/node.key  -out /var/lib/kiwi/server/node.cert"
-               "cd /var/lib/kiwi/"
+  (exec-script "cd /var/lib/kiwi/"
                "npm install"))
 
 (defplan kiwi-conf []
@@ -29,7 +28,11 @@
         :home "/var/lib/kiwi"
         :create-home true
         :system true
-        :group "kiwi"))
+        :group "kiwi")
+  (remote-file "/etc/ssl/certs/STAR_teamrelaychat_nl.key" :local-file "resources/STAR_teamrelaychat_nl.key")
+  (remote-file "/etc/ssl/certs/STAR_teamrelaychat_nl.crt" :local-file "resources/STAR_teamrelaychat_nl.crt")
+  (remote-file "/etc/ssl/certs/PositiveSSLCA2.crt" :local-file "resources/PositiveSSLCA2.crt")
+  (remote-file "/etc/ssl/certs/AddTrustExternalCARoot.crt" :local-file "resources/AddTrustExternalCARoot.crt"))
 
 (defplan start-kiwi []
   (service-script "kiwiirc"
@@ -100,11 +103,16 @@
                ~(slurp "resources/znc.conf")
                {:literal true})))
   (file "/var/lib/znc/configs/znc.conf" :owner "znc" :group "znc")
-  (exec-script "znc --makepem --datadir /var/lib/znc/"))
-              
+  (remote-file "/var/lib/znc/znc.pem"
+               :local-file "resources/znc.pem"
+               :owner "znc"
+               :group "znc"))
 
 (defplan znc []
-  (package "znc")
+  (package-source "backports" :aptitude {:url "http://us.archive.ubuntu.com/ubuntu/"
+                                         :release "precise-backports"
+                                         :scopes ["main" "restricted" "universe" "multiverse"]})
+  (package "znc" :enable "precise-backports")
   (znc-conf)
   (start-znc))
 
