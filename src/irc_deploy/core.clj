@@ -54,7 +54,7 @@
     :owner "irc"
     :group "irc"
     :content (sectioned-properties
-               {:global  {:Listen "127.0.0.1"
+               {:global  {:Listen "127.0.0.1,localhost"
                           :Name (target-name)
                           ;Keep this setting in sync with PIDFILE in /etc/init.d/ngircd
                           :PidFile "/var/run/ircd/ngircd.pid"
@@ -124,7 +124,7 @@
         :home "/var/lib/hubot"
         :system true
         :group "hubot")
-  (exec-script (if-not (directory? "/var/lib/hubot")
+  (exec-script (if-not (file-exists? "/var/lib/hubot/bin/hubot")
                  (do
                    "npm install -g coffee-script"
                    "npm install -g hubot"

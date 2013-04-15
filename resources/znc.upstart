@@ -7,4 +7,6 @@ setuid znc
 setgid znc
 
 respawn
+respawn limit 5 60
+
 exec znc --foreground --datadir=/var/lib/znc
