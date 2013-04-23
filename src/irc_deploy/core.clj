@@ -95,6 +95,8 @@
         :home "/var/lib/znc"
         :system true
         :group "znc")
+  (package "libcap2-bin")
+  (exec-script "setcap 'cap_net_bind_service=+ep' /usr/bin/znc")
   (directory "/var/lib/znc/configs/"
              :owner "znc"
              :group "znc")
@@ -173,7 +175,7 @@
     :node-spec (node-spec
                  ;:packager :apt
                  :image {:image-id :ubuntu-12.04})
-    :phases {;:bootstrap automated-admin-user
+    :phases {:bootstrap automated-admin-user
              :configure (with-meta configure-irc {:execution-settings-f (pallet.core.api/environment-image-execution-settings {})})}))
 
 (def dev-server
