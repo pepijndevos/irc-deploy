@@ -1,4 +1,5 @@
 (ns irc-deploy.core
+  (:require pallet.core.api)
   (:use [pallet.api :only [group-spec node-spec]]
         [pallet.crate :only [defplan target-name]]
         [pallet.crate.automated-admin-user :only [automated-admin-user]]
@@ -172,8 +173,8 @@
     :node-spec (node-spec
                  ;:packager :apt
                  :image {:image-id :ubuntu-12.04})
-    :phases {:bootstrap automated-admin-user
-             :configure configure-irc}))
+    :phases {;:bootstrap automated-admin-user
+             :configure (with-meta configure-irc {:execution-settings-f (pallet.core.api/environment-image-execution-settings {})})}))
 
 (def dev-server
   (group-spec
