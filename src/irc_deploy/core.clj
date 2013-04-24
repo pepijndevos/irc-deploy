@@ -1,9 +1,9 @@
 (ns irc-deploy.core
-  (:require pallet.core.api)
-  (:use [pallet.api :only [group-spec node-spec]]
+  (:use [pallet.api :only [group-spec node-spec execute-with-image-credentials-metadata]]
         [pallet.crate :only [defplan target-name]]
         [pallet.crate.automated-admin-user :only [automated-admin-user]]
         [pallet.actions :only [package package-manager package-source service with-service-restart service-script exec-script user group remote-file file directory remote-directory]]
+        [pallet.action :only [with-action-options]]
         [pallet.stevedore :only [chain-commands]]
         [pallet.config-file.format :only [name-values sectioned-properties]]
         [pallet.script.lib :only [heredoc]]))
@@ -193,7 +193,7 @@
                  ;:packager :apt
                  :image {:image-id :ubuntu-12.04})
     :phases {:bootstrap automated-admin-user
-             :configure (with-meta configure-irc {:execution-settings-f (pallet.core.api/environment-image-execution-settings {})})}))
+             :configure (with-meta configure-irc (execute-with-image-credentials-metadata))}))
 
 (def dev-server
   (group-spec
