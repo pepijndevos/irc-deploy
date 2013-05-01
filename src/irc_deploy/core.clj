@@ -80,7 +80,6 @@
   (service "ngircd" :action :restart))
 
 (defplan new-logging []
-  (package "znc-dev" :enable "precise-backports")
   (directory "/var/lib/znc/modules/log/tmpl"
              :owner "znc"
              :group "znc")
@@ -94,6 +93,19 @@
                :group "znc")
   (exec-script "znc-buildmod /var/lib/znc/modules/log.cpp"))
 
+(defplan registration []
+  (directory "/var/lib/znc/modules/register/tmpl"
+             :owner "znc"
+             :group "znc")
+  (remote-file "/var/lib/znc/modules/register.cpp"
+               :url "https://raw.github.com/pepijndevos/znc/register/modules/register.cpp"
+               :owner "znc"
+               :group "znc")
+  (remote-file "/var/lib/znc/modules/register/tmpl/index.tmpl"
+               :url "https://raw.github.com/pepijndevos/znc/register/modules/data/register/tmpl/index.tmpl"
+               :owner "znc"
+               :group "znc")
+  (exec-script "CXXFLAGS=\"-DREGISTER_HOST=localhost\" znc-buildmod /var/lib/znc/modules/register.cpp"))
 
 (defplan start-znc []
   (service-script "znc"
@@ -132,8 +144,10 @@
                                          :release "precise-backports"
                                          :scopes ["main" "restricted" "universe" "multiverse"]})
   (package "znc" :enable "precise-backports")
+  (package "znc-dev" :enable "precise-backports")
   (znc-conf)
   (new-logging)
+  (registration)
   (start-znc))
 
 (defplan install-hubot []
