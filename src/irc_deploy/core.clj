@@ -1,12 +1,29 @@
 (ns irc-deploy.core
+  (:require [pallet.crate.upstart :as upstart]
+            [pallet.crate.initd :as initd]
+            [clojure.string :as string])
   (:use [pallet.api :only [group-spec node-spec execute-with-image-credentials-metadata]]
-        [pallet.crate :only [defplan target-name]]
+        [pallet.node :only [primary-ip]]
+        [pallet.crate :only [defplan target-name target-node]]
+        [pallet.crate.service :only [service service-supervisor-config]]
         [pallet.crate.automated-admin-user :only [automated-admin-user]]
-        [pallet.actions :only [package package-manager package-source service with-service-restart service-script exec-script user group remote-file file directory remote-directory]]
+        [pallet.actions :only [package package-manager package-source exec-script user group remote-file file directory remote-directory]]
         [pallet.action :only [with-action-options]]
         [pallet.stevedore :only [chain-commands]]
         [pallet.config-file.format :only [name-values sectioned-properties]]
         [pallet.script.lib :only [heredoc]]))
+
+(def default-upstart
+  {:start-on "runlevel [2345"
+   :stop-on "stop on runlevel [!2345]"
+   :respawn true
+   :respawn-limit "5 60"})
+
+(defn parse-ip [ip]
+  (reduce +
+    (map bit-shift-left
+      (map #(Integer/parseInt %) (string/split ip #"\."))
+      (range 24 -1 -8))))
 
 (defplan nodejs []
   (package-source "nodejs" :aptitude {:url "ppa:chris-lea/node.js"})
@@ -36,13 +53,9 @@
   (remote-file "/etc/ssl/certs/AddTrustExternalCARoot.crt" :local-file "resources/AddTrustExternalCARoot.crt"))
 
 (defplan start-kiwi []
-  (service-script "kiwiirc"
-                  :service-impl :upstart
-                  :local-file "resources/kiwi.upstart")
-  (service "kiwiirc"
-           :action :restart
-           ;:if-stopped true
-           :service-impl :upstart))
+  (service {:service-name "kiwiirc"
+            :supervisor :upstart}
+           {:action :restart}))
 
 (defplan kiwi []
   (kiwi-conf)
@@ -77,7 +90,9 @@
                                       :key-url "http://debian.barton.de/debian/archive-key.gpg"})
   (package "ngircd")
   (ngircd-conf)
-  (service "ngircd" :action :restart))
+  (service {:service-name "ngircd"
+            :supervisor :initd}
+           {:action :restart}))
 
 (defplan new-logging []
   (directory "/var/lib/znc/modules/log/tmpl"
@@ -108,12 +123,9 @@
   (exec-script "CXXFLAGS=\"-DREGISTER_HOST=localhost\" znc-buildmod /var/lib/znc/modules/register.cpp"))
 
 (defplan start-znc []
-  (service-script "znc"
-                  :service-impl :upstart
-                  :local-file "resources/znc.upstart")
-  (service "znc"
-           :action :restart
-           :service-impl :upstart))
+  (service {:service-name "znc"
+            :supervisor :upstart}
+           {:action :restart}))
 
 (defplan znc-conf []
   (group "znc" :action :create)
@@ -150,6 +162,15 @@
   (registration)
   (start-znc))
 
+(defplan hubot-dcc []
+  (directory "/var/lib/hubot/data"
+             :owner "hubot"
+             :group "hubot")
+  (remote-file "/var/lib/hubot/scripts/dcc.coffee"
+               :url "https://gist.github.com/pepijndevos/5495692/raw/dcc.coffee"
+               :owner "hubot"
+               :group "hubot"))
+
 (defplan install-hubot []
   (group "hubot" :action :create)
   (user "hubot"
@@ -180,16 +201,14 @@
                :local-file "resources/hubot-scripts.json"))
 
 (defplan start-hubot []
-  (service-script "hubot"
-                  :service-impl :upstart
-                  :local-file "resources/hubot.upstart")
-  (service "hubot"
-           :action :restart
-           :service-impl :upstart))
+  (service {:service-name "kiwiirc"
+            :supervisor :upstart}
+           {:action :restart}))
 
 (defplan hubot []
   (install-hubot)
   (hubot-conf)
+  (hubot-dcc)
   (start-hubot))
 
 (defplan configure-irc []
@@ -200,13 +219,45 @@
   (kiwi)
   (hubot))
 
+(defplan irc-settings [] ;REFAC into server-specs
+  (service-supervisor-config
+    :upstart
+    (assoc default-upstart
+           :service-name "kiwiirc"
+           :exec "/var/lib/kiwi/kiwi -f"
+           :pre-start-exec "/var/lib/kiwi/kiwi build")
+    {})
+  (service-supervisor-config
+    :upstart
+    (assoc default-upstart
+           :service-name "znc"
+           :exec "znc --foreground --datadir=/var/lib/znc"
+           :setuid "znc"
+           :setgid "znc")
+    {})
+  (service-supervisor-config
+    :upstart
+    (assoc default-upstart
+           :service-name "hubot"
+           :env ["HUBOT_IRC_NICK=\"hubot\""
+                 "HUBOT_IRC_ROOMS=\"#main\""
+                 "HUBOT_IRC_SERVER=\"127.0.0.1\""
+                 (str "HUBOT_WEBADDR=\"https://" (target-name) ":8080/\"")
+                 (str "HUBOT_HOST=\"" (parse-ip (primary-ip (target-node))) "\"")
+                 "FILE_BRAIN_PATH=\"/var/lib/hubot\""
+                 "EXPRESS_STATIC=\"/varr/lib/hubot/data\""]
+           :exec "start-stop-daemon --start --chuid hubot --chdir /var/lib/hubot/ --exec /var/lib/hubot/bin/hubot -- --name hubot --adapter irc  >> /var/log/hubot.log 2>&1")
+    {}))
+
 (def irc-server 
   (group-spec
     "server.irc" 
+    :extends (upstart/server-spec {})
     :node-spec (node-spec
                  ;:packager :apt
                  :image {:image-id :ubuntu-12.04})
     :phases {:bootstrap automated-admin-user
+             :settings (with-meta irc-settings (execute-with-image-credentials-metadata))
              :configure (with-meta configure-irc (execute-with-image-credentials-metadata))}))
 
 (def dev-server

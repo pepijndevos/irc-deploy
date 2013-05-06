@@ -7,6 +7,7 @@
                  [com.palletops/pallet "0.8.0-beta.9"]
                  [org.cloudhoist/pallet-vmfest "0.3.0-alpha.3"]
                  [org.clojars.tbatchelli/vboxjxpcom "4.2.4"]
+                 [com.palletops/upstart-crate "0.8.0-SNAPSHOT"]
                  [ch.qos.logback/logback-classic "1.0.9"]]
   :plugins [[com.palletops/pallet-lein "0.6.0-beta.9"]]
   :aliases {"prod" ["pallet" "up" "--service" "VPS" "--roles" "prod"]
