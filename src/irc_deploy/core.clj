@@ -2,7 +2,7 @@
   (:require [pallet.crate.upstart :as upstart]
             [pallet.crate.initd :as initd]
             [clojure.string :as string])
-  (:use [pallet.api :only [group-spec node-spec execute-with-image-credentials-metadata]]
+  (:use [pallet.api :only [group-spec node-spec server-spec execute-with-image-credentials-metadata]]
         [pallet.node :only [primary-ip]]
         [pallet.crate :only [defplan target-name target-node]]
         [pallet.crate.service :only [service service-supervisor-config]]
@@ -57,10 +57,24 @@
             :supervisor :upstart}
            {:action :restart}))
 
+(defplan kiwi-settings []
+  (service-supervisor-config
+    :upstart
+    (assoc default-upstart
+           :service-name "kiwiirc"
+           :exec "/var/lib/kiwi/kiwi -f"
+           :pre-start-exec "/var/lib/kiwi/kiwi build")
+    {}))
+
 (defplan kiwi []
   (kiwi-conf)
   (install-kiwi)
   (start-kiwi))
+
+(def kiwi-server
+  (server-spec
+   :phases {:settings  kiwi-settings
+            :configure kiwi}))
 
 (defplan ngircd-conf []
   (remote-file
@@ -93,6 +107,10 @@
   (service {:service-name "ngircd"
             :supervisor :initd}
            {:action :restart}))
+
+(def ngircd-server
+  (server-spec
+   :phases {:configure ngircd}))
 
 (defplan new-logging []
   (directory "/var/lib/znc/modules/log/tmpl"
@@ -151,6 +169,16 @@
                :owner "znc"
                :group "znc"))
 
+(defplan znc-settings []
+  (service-supervisor-config
+    :upstart
+    (assoc default-upstart
+           :service-name "znc"
+           :exec "znc --foreground --datadir=/var/lib/znc"
+           :setuid "znc"
+           :setgid "znc")
+    {}))
+
 (defplan znc []
   (package-source "backports" :aptitude {:url "http://us.archive.ubuntu.com/ubuntu/"
                                          :release "precise-backports"
@@ -161,6 +189,11 @@
   (new-logging)
   (registration)
   (start-znc))
+
+(def znc-server
+  (server-spec
+   :phases {:settings  znc-settings
+            :configure znc}))
 
 (defplan hubot-dcc []
   (directory "/var/lib/hubot/data"
@@ -205,36 +238,7 @@
             :supervisor :upstart}
            {:action :restart}))
 
-(defplan hubot []
-  (install-hubot)
-  (hubot-conf)
-  (hubot-dcc)
-  (start-hubot))
-
-(defplan configure-irc []
-  (package-manager :update)
-  (package-manager :upgrade)
-  (ngircd)
-  (znc)
-  (kiwi)
-  (hubot))
-
-(defplan irc-settings [] ;REFAC into server-specs
-  (service-supervisor-config
-    :upstart
-    (assoc default-upstart
-           :service-name "kiwiirc"
-           :exec "/var/lib/kiwi/kiwi -f"
-           :pre-start-exec "/var/lib/kiwi/kiwi build")
-    {})
-  (service-supervisor-config
-    :upstart
-    (assoc default-upstart
-           :service-name "znc"
-           :exec "znc --foreground --datadir=/var/lib/znc"
-           :setuid "znc"
-           :setgid "znc")
-    {})
+(defplan hubot-settings []
   (service-supervisor-config
     :upstart
     (assoc default-upstart
@@ -242,23 +246,37 @@
            :env ["HUBOT_IRC_NICK=\"hubot\""
                  "HUBOT_IRC_ROOMS=\"#main\""
                  "HUBOT_IRC_SERVER=\"127.0.0.1\""
-                 (str "HUBOT_WEBADDR=\"https://" (target-name) ":8080/\"")
+                 (str "HUBOT_WEBADDR=\"http://" (target-name) ":8080/\"")
                  (str "HUBOT_HOST=\"" (parse-ip (primary-ip (target-node))) "\"")
                  "FILE_BRAIN_PATH=\"/var/lib/hubot\""
                  "EXPRESS_STATIC=\"/varr/lib/hubot/data\""]
            :exec "start-stop-daemon --start --chuid hubot --chdir /var/lib/hubot/ --exec /var/lib/hubot/bin/hubot -- --name hubot --adapter irc  >> /var/log/hubot.log 2>&1")
     {}))
 
+(defplan hubot []
+  (install-hubot)
+  (hubot-conf)
+  (hubot-dcc)
+  (start-hubot))
+
+(def hubot-server
+  (server-spec
+   :phases {:settings  hubot-settings
+            :configure hubot}))
+
+(defplan upgrade []
+  (package-manager :update)
+  (package-manager :upgrade))
+
 (def irc-server 
   (group-spec
     "server.irc" 
-    :extends (upstart/server-spec {})
+    :extends [(upstart/server-spec {}) ngircd-server znc-server hubot-server kiwi-server]
     :node-spec (node-spec
                  ;:packager :apt
                  :image {:image-id :ubuntu-12.04})
     :phases {:bootstrap automated-admin-user
-             :settings (with-meta irc-settings (execute-with-image-credentials-metadata))
-             :configure (with-meta configure-irc (execute-with-image-credentials-metadata))}))
+             :configure (with-meta upgrade (execute-with-image-credentials-metadata))}))
 
 (def dev-server
   (group-spec
