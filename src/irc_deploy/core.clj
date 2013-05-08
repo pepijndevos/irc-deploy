@@ -19,6 +19,14 @@
    :respawn true
    :respawn-limit "5 60"})
 
+(defplan restart-job [job]
+  ;(service {:service-name job
+  ;          :supervisor :upstart}
+  ;         {:action :stop})
+  (service {:service-name job
+            :supervisor :upstart}
+           {:action :start}))
+
 (defn parse-ip [ip]
   (reduce +
     (map bit-shift-left
@@ -52,11 +60,6 @@
   (remote-file "/etc/ssl/certs/PositiveSSLCA2.crt" :local-file "resources/PositiveSSLCA2.crt")
   (remote-file "/etc/ssl/certs/AddTrustExternalCARoot.crt" :local-file "resources/AddTrustExternalCARoot.crt"))
 
-(defplan start-kiwi []
-  (service {:service-name "kiwiirc"
-            :supervisor :upstart}
-           {:action :restart}))
-
 (defplan kiwi-settings []
   (service-supervisor-config
     :upstart
@@ -69,7 +72,7 @@
 (defplan kiwi []
   (kiwi-conf)
   (install-kiwi)
-  (start-kiwi))
+  (restart-job "kiwiirc"))
 
 (def kiwi-server
   (server-spec
@@ -140,11 +143,6 @@
                :group "znc")
   (exec-script "CXXFLAGS=\"-DREGISTER_HOST=localhost\" znc-buildmod /var/lib/znc/modules/register.cpp"))
 
-(defplan start-znc []
-  (service {:service-name "znc"
-            :supervisor :upstart}
-           {:action :restart}))
-
 (defplan znc-conf []
   (group "znc" :action :create)
   (user "znc"
@@ -188,7 +186,7 @@
   (znc-conf)
   (new-logging)
   (registration)
-  (start-znc))
+  (restart-job "znc"))
 
 (def znc-server
   (server-spec
@@ -201,6 +199,15 @@
              :group "hubot")
   (remote-file "/var/lib/hubot/scripts/dcc.coffee"
                :url "https://gist.github.com/pepijndevos/5495692/raw/dcc.coffee"
+               :owner "hubot"
+               :group "hubot"))
+
+(defplan hubot-setenv []
+  (directory "/var/lib/hubot/data"
+             :owner "hubot"
+             :group "hubot")
+  (remote-file "/var/lib/hubot/scripts/setenv.coffee"
+               :url "https://raw.github.com/github/hubot-scripts/master/src/scripts/setenv.coffee"
                :owner "hubot"
                :group "hubot"))
 
@@ -233,11 +240,6 @@
                :overwrite-changes true
                :local-file "resources/hubot-scripts.json"))
 
-(defplan start-hubot []
-  (service {:service-name "kiwiirc"
-            :supervisor :upstart}
-           {:action :restart}))
-
 (defplan hubot-settings []
   (service-supervisor-config
     :upstart
@@ -249,7 +251,7 @@
                  (str "HUBOT_WEBADDR=\"http://" (target-name) ":8080/\"")
                  (str "HUBOT_HOST=\"" (parse-ip (primary-ip (target-node))) "\"")
                  "FILE_BRAIN_PATH=\"/var/lib/hubot\""
-                 "EXPRESS_STATIC=\"/varr/lib/hubot/data\""]
+                 "EXPRESS_STATIC=\"/var/lib/hubot/data\""]
            :exec "start-stop-daemon --start --chuid hubot --chdir /var/lib/hubot/ --exec /var/lib/hubot/bin/hubot -- --name hubot --adapter irc  >> /var/log/hubot.log 2>&1")
     {}))
 
@@ -257,7 +259,8 @@
   (install-hubot)
   (hubot-conf)
   (hubot-dcc)
-  (start-hubot))
+  (hubot-setenv)
+  (restart-job "hubot"))
 
 (def hubot-server
   (server-spec
@@ -273,7 +276,6 @@
     "server.irc" 
     :extends [(upstart/server-spec {}) ngircd-server znc-server hubot-server kiwi-server]
     :node-spec (node-spec
-                 ;:packager :apt
                  :image {:image-id :ubuntu-12.04})
     :phases {:bootstrap automated-admin-user
              :configure (with-meta upgrade (execute-with-image-credentials-metadata))}))
