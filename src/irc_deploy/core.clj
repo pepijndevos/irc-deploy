@@ -85,7 +85,7 @@
     :owner "irc"
     :group "irc"
     :content (sectioned-properties
-               {:global  {:Listen "127.0.0.1,localhost"
+               {:global  {:Listen "127.0.0.1,::1"
                           :Name (target-name)
                           ;Keep this setting in sync with PIDFILE in /etc/init.d/ngircd
                           :PidFile "/var/run/ircd/ngircd.pid"
@@ -99,7 +99,8 @@
                           :AdminEMail "support@teamrelaychat.nl"}
                 :Options {:PAM "no"
                           :SyslogFacility "local1"}
-                :Limits  {:MaxConnectionsIP 0}})))
+                :Limits  {:MaxConnectionsIP 0,
+                          :MaxNickLength 20}})))
 
 (defplan ngircd []
   (package-source "ngircd" :aptitude {:url "http://debian.barton.de/debian"
@@ -141,7 +142,7 @@
                :url "https://raw.github.com/pepijndevos/znc/register/modules/data/register/tmpl/index.tmpl"
                :owner "znc"
                :group "znc")
-  (exec-script "CXXFLAGS=\"-DREGISTER_HOST=localhost\" znc-buildmod /var/lib/znc/modules/register.cpp"))
+  (exec-script "CXXFLAGS=\"-DREGISTER_HOST=127.0.0.1\" znc-buildmod /var/lib/znc/modules/register.cpp"))
 
 (defplan znc-conf []
   (group "znc" :action :create)
