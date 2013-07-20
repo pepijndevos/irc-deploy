@@ -3,11 +3,11 @@
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.5.0"]
-                 [com.palletops/pallet "0.8.0-beta.9"]
-                 [org.cloudhoist/pallet-vmfest "0.3.0-alpha.3"]
+  :dependencies [[org.clojure/clojure "1.5.1"]
+                 [com.palletops/pallet "0.8.0-RC.1"]
+                 [com.palletops/pallet-vmfest "0.3.0-alpha.5"]
                  [org.clojars.tbatchelli/vboxjxpcom "4.2.4"]
-                 [com.palletops/upstart-crate "0.8.0-SNAPSHOT"]
+                 [com.palletops/upstart-crate "0.8.0-alpha.2"]
                  [ch.qos.logback/logback-classic "1.0.9"]]
   :plugins [[com.palletops/pallet-lein "0.6.0-beta.9"]]
   :aliases {"prod" ["pallet" "up" "--service" "VPS" "--roles" "prod"]

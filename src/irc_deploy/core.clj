@@ -20,9 +20,9 @@
    :respawn-limit "5 60"})
 
 (defplan restart-job [job]
-  ;(service {:service-name job
-  ;          :supervisor :upstart}
-  ;         {:action :stop})
+  (service {:service-name job
+            :supervisor :upstart}
+           {:action :stop})
   (service {:service-name job
             :supervisor :upstart}
            {:action :start}))
@@ -35,7 +35,8 @@
 
 (defplan nodejs []
   (package-source "nodejs" :aptitude {:url "ppa:chris-lea/node.js"})
-  (package "nodejs"))
+  (package "nodejs")
+  (package "git"))
 
 (defplan install-kiwi []
   (nodejs)
@@ -61,6 +62,7 @@
   (remote-file "/etc/ssl/certs/AddTrustExternalCARoot.crt" :local-file "resources/AddTrustExternalCARoot.crt"))
 
 (defplan kiwi-settings []
+  (upstart/settings {:verify false})
   (service-supervisor-config
     :upstart
     (assoc default-upstart
@@ -121,11 +123,11 @@
              :owner "znc"
              :group "znc")
   (remote-file "/var/lib/znc/modules/log.cpp"
-               :url "https://raw.github.com/pepijndevos/znc/master/modules/log.cpp"
+               :url "https://raw.github.com/pepijndevos/irc-utils/master/znc/log/log.cpp"
                :owner "znc"
                :group "znc")
   (remote-file "/var/lib/znc/modules/log/tmpl/index.tmpl"
-               :url "https://raw.github.com/pepijndevos/znc/master/modules/data/log/tmpl/index.tmpl"
+               :url "https://raw.github.com/pepijndevos/irc-utils/master/znc/log/tmpl/index.tmpl"
                :owner "znc"
                :group "znc")
   (exec-script "znc-buildmod /var/lib/znc/modules/log.cpp"))
@@ -135,11 +137,11 @@
              :owner "znc"
              :group "znc")
   (remote-file "/var/lib/znc/modules/register.cpp"
-               :url "https://raw.github.com/pepijndevos/znc/register/modules/register.cpp"
+               :url "https://raw.github.com/pepijndevos/irc-utils/master/znc/register/register.cpp"
                :owner "znc"
                :group "znc")
   (remote-file "/var/lib/znc/modules/register/tmpl/index.tmpl"
-               :url "https://raw.github.com/pepijndevos/znc/register/modules/data/register/tmpl/index.tmpl"
+               :url "https://raw.github.com/pepijndevos/irc-utils/master/znc/register/tmpl/index.tmpl"
                :owner "znc"
                :group "znc")
   (exec-script "CXXFLAGS=\"-DREGISTER_HOST=127.0.0.1\" znc-buildmod /var/lib/znc/modules/register.cpp"))
@@ -199,7 +201,7 @@
              :owner "hubot"
              :group "hubot")
   (remote-file "/var/lib/hubot/scripts/dcc.coffee"
-               :url "https://gist.github.com/pepijndevos/5495692/raw/dcc.coffee"
+               :url "https://raw.github.com/pepijndevos/irc-utils/master/hubot/dcc.coffee"
                :owner "hubot"
                :group "hubot"))
 
@@ -208,7 +210,7 @@
              :owner "hubot"
              :group "hubot")
   (remote-file "/var/lib/hubot/scripts/setenv.coffee"
-               :url "https://raw.github.com/github/hubot-scripts/master/src/scripts/setenv.coffee"
+               :url "https://raw.github.com/pepijndevos/irc-utils/master/hubot/setenv.coffee"
                :owner "hubot"
                :group "hubot"))
 
@@ -292,5 +294,5 @@
   (group-spec
     "server.prod"
     :extends irc-server
-    :count 2
+    :count 5
     :roles #{:prod}))
